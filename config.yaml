@@ -1,8 +1,9 @@
 llm:
-  provider: openai
-  model: gpt-3.5-turbo
+  provider: groq
+  model: mixtral-8x7b-32768
   max_tokens: 2000
   # API key should be set via GOCHAT_LLM_API_KEY environment variable
+  endpoint: "https://api.groq.com/openai/v1/chat/completions"
 
 ui:
   theme: default
