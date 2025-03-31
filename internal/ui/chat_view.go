@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/saiashirwad/gochat/internal/chat"
 	"github.com/saiashirwad/gochat/internal/config"
@@ -21,7 +22,6 @@ var (
 			BorderStyle(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("62")).
 			Background(lipgloss.Color("233")).
-			Margin(0, 0, 0, 0). // No margin
 			Padding(0, 1)
 
 	// Style for focused message box - solid background
@@ -29,7 +29,6 @@ var (
 				BorderStyle(lipgloss.RoundedBorder()).
 				BorderForeground(lipgloss.Color("205")).
 				Background(lipgloss.Color("234")).
-				Margin(0, 0, 0, 0). // No margin
 				Padding(0, 1)
 
 	// Style for user messages
@@ -39,7 +38,22 @@ var (
 	// Style for assistant messages
 	assistantStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("39"))
+
+	// Markdown renderer
+	markdownRenderer *glamour.TermRenderer
 )
+
+func init() {
+	// Initialize markdown renderer with dark theme
+	var err error
+	markdownRenderer, err = glamour.NewTermRenderer(
+		glamour.WithAutoStyle(),
+		glamour.WithWordWrap(0), // Will be set dynamically based on width
+	)
+	if err != nil {
+		panic(err)
+	}
+}
 
 // ChatView displays the conversation history
 type ChatView struct {
@@ -74,11 +88,17 @@ func NewChatView(cfg *config.Config) *ChatView {
 func (c *ChatView) SetSize(width, height int) {
 	c.width = width
 	c.height = height
-	c.viewport.Width = width   // No need to subtract borders
-	c.viewport.Height = height // No need to subtract borders
+	c.viewport.Width = width
+	c.viewport.Height = height
 	chatStyle = chatStyle.Width(width)
-	messageBoxStyle = messageBoxStyle.Width(width - 4) // Account for message box margins
+	messageBoxStyle = messageBoxStyle.Width(width - 4)
 	focusedMessageBoxStyle = focusedMessageBoxStyle.Width(width - 4)
+
+	// Update markdown renderer with new width
+	markdownRenderer, _ = glamour.NewTermRenderer(
+		glamour.WithAutoStyle(),
+		glamour.WithWordWrap(width-8), // Account for padding and borders
+	)
 
 	// Update content after resize
 	c.updateContent()
@@ -183,20 +203,19 @@ func (c *ChatView) updateContent() {
 		var content string
 		var style lipgloss.Style
 
-		// Choose message style based on role
-		switch msg.Role {
-		case chat.RoleUser:
-			content = userStyle.Render(msg.Content)
-		case chat.RoleAssistant:
-			content = assistantStyle.Render(msg.Content)
+		// Render content as markdown
+		rendered, err := markdownRenderer.Render(msg.Content)
+		if err != nil {
+			rendered = msg.Content // Fallback to plain text if markdown rendering fails
 		}
+		rendered = strings.TrimSpace(rendered) // Remove extra newlines from glamour
 
 		// Add header based on role
 		header := "LLM Message"
 		if msg.Role == chat.RoleUser {
 			header = "My message"
 		}
-		content = lipgloss.JoinVertical(lipgloss.Left, header, content)
+		content = lipgloss.JoinVertical(lipgloss.Left, header, rendered)
 
 		// Apply message box style based on focus
 		if c.focusActive && i == c.focusIndex {
