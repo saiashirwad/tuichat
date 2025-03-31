@@ -6,6 +6,11 @@ import (
 	"github.com/saiashirwad/gochat/internal/config"
 )
 
+// userInputMsg is sent when the user submits a message
+type userInputMsg struct {
+	input string
+}
+
 // InputView handles user input
 type InputView struct {
 	config *config.Config
@@ -43,9 +48,15 @@ func (i *InputView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyEnter:
 			if i.input != "" {
-				// Send message (would dispatch a command in real implementation)
+				// Create a message from the current input
+				input := i.input
+				// Clear the input
 				i.input = ""
 				i.cursor = 0
+				// Return the message as a command
+				return i, func() tea.Msg {
+					return userInputMsg{input: input}
+				}
 			}
 		case tea.KeyBackspace:
 			if i.cursor > 0 {
