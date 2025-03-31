@@ -1,0 +1,13 @@
+llm:
+  provider: openai
+  model: gpt-3.5-turbo
+  max_tokens: 2000
+  # API key should be set via GOCHAT_LLM_API_KEY environment variable
+
+ui:
+  theme: default
+  max_width: 100
+  show_timestamp: true
+
+storage:
+  chats_dir: ./chats 
