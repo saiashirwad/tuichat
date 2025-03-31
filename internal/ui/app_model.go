@@ -50,7 +50,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "i":
 			// Return to input mode if in chat focus mode
-			if !m.inputView.focused {
+			if !m.inputView.textInput.Focused() {
 				m.inputView.Focus()
 				m.chatView.focusActive = false
 			}

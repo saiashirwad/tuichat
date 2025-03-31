@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
@@ -12,6 +13,56 @@ import (
 	"github.com/saiashirwad/gochat/internal/config"
 	"github.com/saiashirwad/gochat/internal/llm"
 )
+
+// KeyMap defines the keybindings for the chat view
+type KeyMap struct {
+	PageUp   key.Binding
+	PageDown key.Binding
+	HalfUp   key.Binding
+	HalfDown key.Binding
+	Up       key.Binding
+	Down     key.Binding
+	Top      key.Binding
+	Bottom   key.Binding
+}
+
+// DefaultKeyMap returns the default keybindings
+func DefaultKeyMap() KeyMap {
+	return KeyMap{
+		PageUp: key.NewBinding(
+			key.WithKeys("pgup"),
+			key.WithHelp("PgUp", "page up"),
+		),
+		PageDown: key.NewBinding(
+			key.WithKeys("pgdown"),
+			key.WithHelp("PgDn", "page down"),
+		),
+		HalfUp: key.NewBinding(
+			key.WithKeys("ctrl+u"),
+			key.WithHelp("Ctrl+u", "half page up"),
+		),
+		HalfDown: key.NewBinding(
+			key.WithKeys("ctrl+d"),
+			key.WithHelp("Ctrl+d", "half page down"),
+		),
+		Up: key.NewBinding(
+			key.WithKeys("up", "k"),
+			key.WithHelp("↑/k", "scroll up"),
+		),
+		Down: key.NewBinding(
+			key.WithKeys("down", "j"),
+			key.WithHelp("↓/j", "scroll down"),
+		),
+		Top: key.NewBinding(
+			key.WithKeys("home", "g"),
+			key.WithHelp("Home/g", "scroll to top"),
+		),
+		Bottom: key.NewBinding(
+			key.WithKeys("end", "G"),
+			key.WithHelp("End/G", "scroll to bottom"),
+		),
+	}
+}
 
 var (
 	// Style for the entire chat area - no borders
@@ -40,6 +91,9 @@ var (
 
 	// Markdown renderer
 	markdownRenderer *glamour.TermRenderer
+
+	// Default keybindings
+	keys = DefaultKeyMap()
 )
 
 func init() {
@@ -64,6 +118,7 @@ type ChatView struct {
 	height      int
 	focusIndex  int  // Index of currently focused message
 	focusActive bool // Whether message focus is active
+	keys        KeyMap
 }
 
 // NewChatView creates a new chat view
@@ -74,11 +129,13 @@ func NewChatView(cfg *config.Config) *ChatView {
 		messages: []chat.Message{
 			chat.NewMessage(chat.RoleAssistant, "Welcome to GoChat! Type your message below and press Enter to send."),
 		},
+		keys: DefaultKeyMap(),
 	}
 
 	// Initialize viewport with minimum size
 	c.viewport = viewport.New(10, 10)
 	c.viewport.Style = lipgloss.NewStyle()
+	c.viewport.KeyMap = viewport.KeyMap{} // Disable default keybindings
 
 	return c
 }
@@ -145,7 +202,26 @@ func (c *ChatView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if c.focusActive {
+		if !c.focusActive {
+			switch {
+			case key.Matches(msg, c.keys.PageUp):
+				c.viewport.ViewUp()
+			case key.Matches(msg, c.keys.PageDown):
+				c.viewport.ViewDown()
+			case key.Matches(msg, c.keys.HalfUp):
+				c.viewport.HalfViewUp()
+			case key.Matches(msg, c.keys.HalfDown):
+				c.viewport.HalfViewDown()
+			case key.Matches(msg, c.keys.Up):
+				c.viewport.LineUp(1)
+			case key.Matches(msg, c.keys.Down):
+				c.viewport.LineDown(1)
+			case key.Matches(msg, c.keys.Top):
+				c.viewport.GotoTop()
+			case key.Matches(msg, c.keys.Bottom):
+				c.viewport.GotoBottom()
+			}
+		} else {
 			switch msg.String() {
 			case "j", "tab":
 				c.focusIndex++
@@ -168,16 +244,19 @@ func (c *ChatView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case newMessageMsg:
 		c.messages = append(c.messages, msg.message)
 		c.updateContent()
+		c.viewport.GotoBottom()
 		return c, nil
 	case errMsg:
 		c.messages = append(c.messages, chat.NewMessage(chat.RoleAssistant, fmt.Sprintf("Error: %v", msg.err)))
 		c.updateContent()
+		c.viewport.GotoBottom()
 		return c, nil
 	case userInputMsg:
 		// Add user message to history
 		userMessage := chat.NewMessage(chat.RoleUser, msg.input)
 		c.messages = append(c.messages, userMessage)
 		c.updateContent()
+		c.viewport.GotoBottom()
 		// Send to LLM
 		return c, sendMessageCmd(c.llmClient, c.messages)
 	case focusChatsMsg:
