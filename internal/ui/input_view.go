@@ -30,13 +30,15 @@ type InputView struct {
 	input     string
 	cursorPos int
 	width     int
+	focused   bool
 }
 
 // NewInputView creates a new input view
 func NewInputView(cfg *config.Config) *InputView {
 	return &InputView{
-		config: cfg,
-		input:  "",
+		config:  cfg,
+		input:   "",
+		focused: true,
 	}
 }
 
@@ -53,10 +55,19 @@ func (i *InputView) Init() tea.Cmd {
 
 // Update handles events for the input view
 func (i *InputView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if !i.focused {
+		return i, nil
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyEnter:
+		switch msg.String() {
+		case "esc":
+			i.focused = false
+			return i, func() tea.Msg {
+				return focusChatsMsg{}
+			}
+		case "enter":
 			if i.input != "" {
 				input := strings.TrimSpace(i.input)
 				if input != "" {
@@ -71,28 +82,34 @@ func (i *InputView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			return i, nil
-		case tea.KeyBackspace:
+		case "shift+enter":
+			// Insert newline at cursor position
+			i.input = i.input[:i.cursorPos] + "\n" + i.input[i.cursorPos:]
+			i.cursorPos++
+		case "backspace":
 			if i.cursorPos > 0 {
 				// Remove character before cursor
 				i.input = i.input[:i.cursorPos-1] + i.input[i.cursorPos:]
 				i.cursorPos--
 			}
-		case tea.KeyLeft:
+		case "left":
 			if i.cursorPos > 0 {
 				i.cursorPos--
 			}
-		case tea.KeyRight:
+		case "right":
 			if i.cursorPos < len(i.input) {
 				i.cursorPos++
 			}
-		case tea.KeySpace:
-			// Insert space at cursor position
+		case " ":
+			// Handle space explicitly
 			i.input = i.input[:i.cursorPos] + " " + i.input[i.cursorPos:]
 			i.cursorPos++
-		case tea.KeyRunes:
-			// Insert runes at cursor position
-			i.input = i.input[:i.cursorPos] + string(msg.Runes) + i.input[i.cursorPos:]
-			i.cursorPos += len(msg.Runes)
+		default:
+			if msg.Type == tea.KeyRunes {
+				// Insert runes at cursor position
+				i.input = i.input[:i.cursorPos] + string(msg.Runes) + i.input[i.cursorPos:]
+				i.cursorPos += len(msg.Runes)
+			}
 		}
 	}
 	return i, nil
@@ -100,6 +117,10 @@ func (i *InputView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View renders the input view
 func (i *InputView) View() string {
+	if !i.focused {
+		return ""
+	}
+
 	// Add cursor to input
 	displayText := i.input
 	if i.cursorPos < len(displayText) {
@@ -111,4 +132,14 @@ func (i *InputView) View() string {
 	return inputBoxStyle.Render(
 		inputTextStyle.Render(displayText),
 	)
+}
+
+// Focus sets the input view as focused
+func (i *InputView) Focus() {
+	i.focused = true
+}
+
+// Blur removes focus from the input view
+func (i *InputView) Blur() {
+	i.focused = false
 }

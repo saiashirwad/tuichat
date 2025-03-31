@@ -39,7 +39,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "esc":
+		case "ctrl+c":
 			return m, tea.Quit
 		case "ctrl+f":
 			// Toggle finder
@@ -47,6 +47,12 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.finderActive {
 				// Initialize finder search
 				return m, m.finderView.Init()
+			}
+		case "i":
+			// Return to input mode if in chat focus mode
+			if !m.inputView.focused {
+				m.inputView.Focus()
+				m.chatView.focusActive = false
 			}
 		}
 
