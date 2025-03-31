@@ -20,8 +20,7 @@ var (
 	// Base message style - minimal with just a separator line
 	baseMessageStyle = lipgloss.NewStyle().
 				BorderBottom(true).
-				BorderStyle(lipgloss.NormalBorder()).
-				Width(100)
+				BorderStyle(lipgloss.NormalBorder())
 
 	// Style for user messages - pink separator
 	userMessageStyle = baseMessageStyle.Copy().
@@ -93,17 +92,17 @@ func (c *ChatView) SetSize(width, height int) {
 	chatStyle = chatStyle.Width(width)
 
 	// Calculate message width to fill the viewport
-	messageWidth := width - 4 // Account for left and right margins
-	baseMessageStyle = baseMessageStyle.Width(messageWidth).MaxWidth(messageWidth)
-	userMessageStyle = userMessageStyle.Width(messageWidth).MaxWidth(messageWidth)
-	llmMessageStyle = llmMessageStyle.Width(messageWidth).MaxWidth(messageWidth)
-	focusedMessageStyle = focusedMessageStyle.Width(messageWidth).MaxWidth(messageWidth)
-	headerStyle = headerStyle.Width(messageWidth).MaxWidth(messageWidth)
+	messageWidth := width
+	baseMessageStyle = baseMessageStyle.Width(messageWidth)
+	userMessageStyle = userMessageStyle.Width(messageWidth)
+	llmMessageStyle = llmMessageStyle.Width(messageWidth)
+	focusedMessageStyle = focusedMessageStyle.Width(messageWidth)
+	headerStyle = headerStyle.Width(messageWidth)
 
 	// Update markdown renderer with new width
 	markdownRenderer, _ = glamour.NewTermRenderer(
 		glamour.WithAutoStyle(),
-		glamour.WithWordWrap(messageWidth-4), // Account for padding
+		glamour.WithWordWrap(messageWidth-2), // Account for minimal padding
 	)
 
 	// Update content after resize

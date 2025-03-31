@@ -9,10 +9,9 @@ import (
 )
 
 var (
-	// Style for the input box - no borders, subtle background
+	// Style for the input box - no borders, minimal padding
 	inputBoxStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("233")).
-			Padding(0, 1)
+			Background(lipgloss.Color("233"))
 
 	// Style for the input text
 	inputTextStyle = lipgloss.NewStyle().
@@ -45,7 +44,7 @@ func NewInputView(cfg *config.Config) *InputView {
 // SetWidth updates the width of the input view
 func (i *InputView) SetWidth(width int) {
 	i.width = width
-	inputBoxStyle = inputBoxStyle.Width(width - 2)
+	inputBoxStyle = inputBoxStyle.Width(width)
 }
 
 // Init initializes the input view
