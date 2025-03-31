@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"strings"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/saiashirwad/gochat/internal/config"
@@ -13,20 +15,27 @@ type userInputMsg struct {
 
 // InputView handles user input
 type InputView struct {
-	config *config.Config
-	input  string
-	cursor int
-	width  int
-	style  lipgloss.Style
+	config     *config.Config
+	input      string
+	cursorPos  int
+	width      int
+	style      lipgloss.Style
+	inputStyle lipgloss.Style
 }
 
 // NewInputView creates a new input view
 func NewInputView(cfg *config.Config) *InputView {
+	inputStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("205"))
+
 	return &InputView{
 		config: cfg,
+		input:  "",
 		style: lipgloss.NewStyle().
 			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("63")),
+			BorderForeground(lipgloss.Color("63")).
+			Padding(0, 1),
+		inputStyle: inputStyle,
 	}
 }
 
@@ -48,32 +57,41 @@ func (i *InputView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyEnter:
 			if i.input != "" {
-				// Create a message from the current input
-				input := i.input
-				// Clear the input
-				i.input = ""
-				i.cursor = 0
-				// Return the message as a command
-				return i, func() tea.Msg {
-					return userInputMsg{input: input}
+				input := strings.TrimSpace(i.input)
+				if input != "" {
+					// Clear the input
+					oldInput := i.input
+					i.input = ""
+					i.cursorPos = 0
+					// Return the message as a command
+					return i, func() tea.Msg {
+						return userInputMsg{input: oldInput}
+					}
 				}
 			}
+			return i, nil
 		case tea.KeyBackspace:
-			if i.cursor > 0 {
-				i.input = i.input[:i.cursor-1] + i.input[i.cursor:]
-				i.cursor--
+			if i.cursorPos > 0 {
+				// Remove character before cursor
+				i.input = i.input[:i.cursorPos-1] + i.input[i.cursorPos:]
+				i.cursorPos--
 			}
-		case tea.KeyRunes:
-			i.input = i.input[:i.cursor] + string(msg.Runes) + i.input[i.cursor:]
-			i.cursor += len(msg.Runes)
 		case tea.KeyLeft:
-			if i.cursor > 0 {
-				i.cursor--
+			if i.cursorPos > 0 {
+				i.cursorPos--
 			}
 		case tea.KeyRight:
-			if i.cursor < len(i.input) {
-				i.cursor++
+			if i.cursorPos < len(i.input) {
+				i.cursorPos++
 			}
+		case tea.KeySpace:
+			// Insert space at cursor position
+			i.input = i.input[:i.cursorPos] + " " + i.input[i.cursorPos:]
+			i.cursorPos++
+		case tea.KeyRunes:
+			// Insert runes at cursor position
+			i.input = i.input[:i.cursorPos] + string(msg.Runes) + i.input[i.cursorPos:]
+			i.cursorPos += len(msg.Runes)
 		}
 	}
 	return i, nil
@@ -81,12 +99,19 @@ func (i *InputView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View renders the input view
 func (i *InputView) View() string {
-	prompt := "> "
-	cursor := i.input
-	if i.cursor < len(i.input) {
-		cursor = i.input[:i.cursor] + "|" + i.input[i.cursor:]
+	// Add cursor to input
+	displayText := i.input
+	if i.cursorPos < len(displayText) {
+		displayText = displayText[:i.cursorPos] + "│" + displayText[i.cursorPos:]
 	} else {
-		cursor = i.input + "|"
+		displayText = displayText + "│"
 	}
-	return i.style.Render(prompt + cursor)
+
+	return i.style.Render(
+		lipgloss.JoinVertical(
+			lipgloss.Left,
+			"Type your message (Enter to send):",
+			i.inputStyle.Render(displayText),
+		),
+	)
 }
