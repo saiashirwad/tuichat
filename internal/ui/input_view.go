@@ -8,6 +8,17 @@ import (
 	"github.com/saiashirwad/gochat/internal/config"
 )
 
+var (
+	// Style for the input box - no borders, subtle background
+	inputBoxStyle = lipgloss.NewStyle().
+			Background(lipgloss.Color("233")).
+			Padding(0, 1)
+
+	// Style for the input text
+	inputTextStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("205"))
+)
+
 // userInputMsg is sent when the user submits a message
 type userInputMsg struct {
 	input string
@@ -15,34 +26,24 @@ type userInputMsg struct {
 
 // InputView handles user input
 type InputView struct {
-	config     *config.Config
-	input      string
-	cursorPos  int
-	width      int
-	style      lipgloss.Style
-	inputStyle lipgloss.Style
+	config    *config.Config
+	input     string
+	cursorPos int
+	width     int
 }
 
 // NewInputView creates a new input view
 func NewInputView(cfg *config.Config) *InputView {
-	inputStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("205"))
-
 	return &InputView{
 		config: cfg,
 		input:  "",
-		style: lipgloss.NewStyle().
-			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("63")).
-			Padding(0, 1),
-		inputStyle: inputStyle,
 	}
 }
 
 // SetWidth updates the width of the input view
 func (i *InputView) SetWidth(width int) {
 	i.width = width
-	i.style = i.style.Width(width - 2)
+	inputBoxStyle = inputBoxStyle.Width(width - 2)
 }
 
 // Init initializes the input view
@@ -107,11 +108,7 @@ func (i *InputView) View() string {
 		displayText = displayText + "│"
 	}
 
-	return i.style.Render(
-		lipgloss.JoinVertical(
-			lipgloss.Left,
-			"Type your message (Enter to send):",
-			i.inputStyle.Render(displayText),
-		),
+	return inputBoxStyle.Render(
+		inputTextStyle.Render(displayText),
 	)
 }

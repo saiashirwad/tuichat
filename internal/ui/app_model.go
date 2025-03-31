@@ -29,7 +29,6 @@ func NewAppModel(cfg *config.Config) *AppModel {
 
 // Init initializes the model
 func (m *AppModel) Init() tea.Cmd {
-	// Return a command to load chat history
 	return nil
 }
 
@@ -53,8 +52,16 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
+
+		// Calculate heights
+		inputHeight := 1                     // Input box height (just content, no borders)
+		chatHeight := m.height - inputHeight // No extra space needed
+		if chatHeight < 5 {
+			chatHeight = 5 // Minimum chat height
+		}
+
 		// Update sub-component sizes
-		m.chatView.SetSize(msg.Width, msg.Height-3) // Reserve space for input
+		m.chatView.SetSize(msg.Width, chatHeight)
 		m.inputView.SetWidth(msg.Width)
 		m.finderView.SetSize(msg.Width, msg.Height)
 	}
@@ -92,7 +99,7 @@ func (m *AppModel) View() string {
 		return m.finderView.View()
 	}
 
-	// Combine chat and input views
+	// Join views without extra spacing
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
 		m.chatView.View(),
