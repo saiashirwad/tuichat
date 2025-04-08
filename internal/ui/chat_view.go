@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 	"github.com/saiashirwad/gochat/internal/chat"
 	"github.com/saiashirwad/gochat/internal/config"
 	"github.com/saiashirwad/gochat/internal/llm"
@@ -65,29 +66,38 @@ func DefaultKeyMap() KeyMap {
 }
 
 var (
-	// Style for the entire chat area - no borders
+	// Style for the entire chat area
 	chatStyle = lipgloss.NewStyle()
 
-	// Base message style - minimal with just a separator line
+	// Base message style - clean with thick left border
 	baseMessageStyle = lipgloss.NewStyle().
-				BorderBottom(true).
-				BorderStyle(lipgloss.NormalBorder())
+				Width(100).
+				PaddingLeft(1).
+				PaddingRight(1).
+				BorderLeft(true).
+				BorderStyle(lipgloss.ThickBorder()).
+				MarginTop(-1) // Remove gap between messages
 
-	// Style for user messages - pink separator
+	// Style for user messages - magenta indicator
 	userMessageStyle = baseMessageStyle.Copy().
-				BorderForeground(lipgloss.Color("205"))
+				BorderLeftForeground(lipgloss.Color("5")) // Magenta border
 
-	// Style for LLM messages - blue separator
+	// Style for LLM messages - blue indicator
 	llmMessageStyle = baseMessageStyle.Copy().
-			BorderForeground(lipgloss.Color("39"))
+			BorderLeftForeground(lipgloss.Color("4")) // Blue border
 
-	// Style for focused message - highlighted separator
+	// Style for focused message - yellow indicator
 	focusedMessageStyle = baseMessageStyle.Copy().
-				BorderForeground(lipgloss.Color("99"))
+				BorderLeftForeground(lipgloss.Color("3")) // Yellow border
 
-	// Header styles - minimal
+	// Header styles - subtle emphasis, no margins
 	headerStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("244"))
+			Foreground(lipgloss.Color("7")). // Light gray
+			Bold(true).
+			PaddingLeft(1).
+			PaddingRight(1).
+			MarginBottom(0).
+			Height(1) // Force single line height
 
 	// Markdown renderer
 	markdownRenderer *glamour.TermRenderer
@@ -97,6 +107,9 @@ var (
 )
 
 func init() {
+	// Force TrueColor support
+	lipgloss.SetColorProfile(termenv.TrueColor)
+
 	// Initialize markdown renderer with dark theme
 	var err error
 	markdownRenderer, err = glamour.NewTermRenderer(
@@ -146,9 +159,9 @@ func (c *ChatView) SetSize(width, height int) {
 	c.height = height
 	c.viewport.Width = width
 	c.viewport.Height = height
-	chatStyle = chatStyle.Width(width)
 
-	// Calculate message width to fill the viewport
+	// Set widths for all styles
+	chatStyle = chatStyle.Width(width)
 	messageWidth := width
 	baseMessageStyle = baseMessageStyle.Width(messageWidth)
 	userMessageStyle = userMessageStyle.Width(messageWidth)
@@ -159,7 +172,7 @@ func (c *ChatView) SetSize(width, height int) {
 	// Update markdown renderer with new width
 	markdownRenderer, _ = glamour.NewTermRenderer(
 		glamour.WithAutoStyle(),
-		glamour.WithWordWrap(messageWidth-2), // Account for minimal padding
+		glamour.WithWordWrap(messageWidth-2), // Account for padding
 	)
 
 	// Update content after resize
@@ -195,6 +208,15 @@ type errMsg struct {
 
 // Message type for focusing chats
 type focusChatsMsg struct{}
+
+// preprocessContent converts special tags to markdown and handles other content preprocessing
+func preprocessContent(content string) string {
+	// Convert thinking tags to markdown italics
+	// This handles both <think> and </think> tags
+	content = strings.ReplaceAll(content, "<think>", "*")
+	content = strings.ReplaceAll(content, "</think>", "*")
+	return content
+}
 
 // Update handles events for the chat view
 func (c *ChatView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -281,10 +303,13 @@ func (c *ChatView) updateContent() {
 		var content string
 		var style lipgloss.Style
 
+		// Preprocess content to handle special tags
+		processedContent := preprocessContent(msg.Content)
+
 		// Render content as markdown
-		rendered, err := markdownRenderer.Render(msg.Content)
+		rendered, err := markdownRenderer.Render(processedContent)
 		if err != nil {
-			rendered = msg.Content // Fallback to plain text if markdown rendering fails
+			rendered = processedContent // Fallback to plain text if markdown rendering fails
 		}
 		rendered = strings.TrimSpace(rendered) // Remove extra newlines from glamour
 
@@ -295,8 +320,8 @@ func (c *ChatView) updateContent() {
 		}
 		header = headerStyle.Render(header)
 
-		// Join header and content without padding
-		content = lipgloss.JoinVertical(lipgloss.Left, header, rendered)
+		// Join header and content without gaps
+		content = header + "\n" + rendered
 
 		// Apply appropriate style based on role and focus
 		if c.focusActive && i == c.focusIndex {
